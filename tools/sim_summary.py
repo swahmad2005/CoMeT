@@ -162,6 +162,13 @@ def count_violations(trace, components, threshold):
 SEPARATOR = "-" * 72
 THICK_SEP = "=" * 72
 
+ARCH_LABELS = {
+    'gainestown_DDR': '2D Off-chip DDR Memory',
+    'gainestown_2_5D': '2.5D Interposer',
+    'gainestown_3Dmem': '3D Stacked Memory (Logic base)',
+    'gainestown_3D': '3D Stacked (Cores on Memory)'
+}
+
 
 def print_header(title):
     """Print a section header with a separator line."""
@@ -210,6 +217,7 @@ def print_stats_table(component_stats, unit, top_n=None):
 def generate_single_report(result_dir, threshold=80.0):
     """Generate a full summary report for a single simulation result directory."""
     dir_name = os.path.basename(os.path.normpath(result_dir))
+    config_name = ARCH_LABELS.get(dir_name, dir_name)
 
     # Find and parse trace files
     temp_file = os.path.join(result_dir, 'combined_temperature.trace')
@@ -227,7 +235,7 @@ def generate_single_report(result_dir, threshold=80.0):
     print("  CoMeT SIMULATION SUMMARY REPORT")
     print(THICK_SEP)
     print("\n  Directory:      {}".format(result_dir))
-    print("  Configuration:  {}".format(dir_name))
+    print("  Configuration:  {}".format(config_name))
 
     if temp_trace:
         print("  Epochs:         {}".format(temp_trace['epochs']))
@@ -348,7 +356,7 @@ def generate_single_report(result_dir, threshold=80.0):
 
     return {
         'dir': result_dir,
-        'name': dir_name,
+        'name': config_name,
         'temp_trace': temp_trace,
         'power_trace': power_trace,
     }
@@ -370,11 +378,12 @@ def generate_comparison_report(result_dirs, threshold=80.0):
         power_trace = parse_trace_file(power_file)
         
         dir_name = os.path.basename(os.path.normpath(d))
+        config_name = ARCH_LABELS.get(dir_name, dir_name)
         
         if temp_trace or power_trace:
             reports.append({
                 'dir': d,
-                'name': dir_name,
+                'name': config_name,
                 'temp_trace': temp_trace,
                 'power_trace': power_trace
             })
