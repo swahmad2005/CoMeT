@@ -49,6 +49,35 @@ def parse_trace_file(filepath):
     }
 
 
+def compute_stats(values):
+    """Compute min, max, mean, and standard deviation for a list of numbers."""
+    if not values:
+        return {'min': 0, 'max': 0, 'avg': 0, 'stddev': 0}
+
+    n = len(values)
+    avg = sum(values) / n
+    min_val = min(values)
+    max_val = max(values)
+
+    if n > 1:
+        variance = sum((x - avg) ** 2 for x in values) / (n - 1)
+        stddev = variance ** 0.5
+    else:
+        stddev = 0.0
+
+    return {
+        'min': round(min_val, 2),
+        'max': round(max_val, 2),
+        'avg': round(avg, 2),
+        'stddev': round(stddev, 2),
+    }
+
+
+def get_component_series(trace, col_index):
+    """Extract all values for a single component (column) across all epochs."""
+    return [row[col_index] for row in trace['data']]
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate a human-readable summary report from CoMeT simulation results.",
