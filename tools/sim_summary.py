@@ -108,6 +108,22 @@ def get_aggregate_stats(trace, components):
     return compute_stats(all_values)
 
 
+def find_hotspot(component_stats):
+    """Find the component with the highest peak value.
+
+    Args:
+        component_stats: dict from get_component_stats()
+
+    Returns:
+        tuple of (component_name, peak_value), or (None, 0) if empty
+    """
+    if not component_stats:
+        return None, 0
+
+    hottest = max(component_stats.items(), key=lambda x: x[1]['max'])
+    return hottest[0], hottest[1]['max']
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate a human-readable summary report from CoMeT simulation results.",
