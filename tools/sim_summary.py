@@ -1,6 +1,24 @@
 #!/usr/bin/env python3
 """
 sim_summary.py - CoMeT Simulation Summary Report Generator
+
+This tool parses raw `.trace` outputs from CoMeT thermal/power simulations
+and generates a human-readable summary report. It computes peak temperatures, 
+identifies thermal hotspots, checks for threshold violations, and compares 
+multiple architecture configurations.
+
+Usage:
+  # Analyze a single simulation result
+  python sim_summary.py comet_results/gainestown_3D
+
+  # Compare multiple configurations side-by-side
+  python sim_summary.py comet_results/gainestown_DDR comet_results/gainestown_3D
+
+  # Specify a custom temperature threshold (default is 80.0 C)
+  python sim_summary.py comet_results/gainestown_3D --threshold 85.0
+
+  # Export the computed summary statistics to a CSV file
+  python sim_summary.py comet_results/gainestown_3D --csv results.csv
 """
 
 import sys
@@ -10,7 +28,17 @@ import csv
 
 
 def parse_trace_file(filepath):
-    """Parse a CoMeT .trace file into headers and a data matrix."""
+    """
+    Parse a CoMeT .trace file into headers, data, and component indices.
+
+    Args:
+        filepath (str): Path to the .trace file.
+
+    Returns:
+        dict: A dictionary containing 'headers' (list), 'data' (2D list),
+              'cores' (list of tuples), 'banks' (list of tuples), and
+              'epochs' (int). Returns None if the file is invalid or missing.
+    """
     if not os.path.exists(filepath):
         return None
 
@@ -51,7 +79,15 @@ def parse_trace_file(filepath):
 
 
 def compute_stats(values):
-    """Compute min, max, mean, and standard deviation for a list of numbers."""
+    """
+    Compute min, max, mean, and standard deviation for a list of numbers.
+
+    Args:
+        values (list of float): The list of numerical values.
+
+    Returns:
+        dict: A dictionary with 'min', 'max', 'avg', and 'stddev' keys.
+    """
     if not values:
         return {'min': 0, 'max': 0, 'avg': 0, 'stddev': 0}
 
