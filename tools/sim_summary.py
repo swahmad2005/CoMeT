@@ -353,6 +353,126 @@ def generate_single_report(result_dir, threshold=80.0):
     }
 
 
+# ─── Comparison Report ─────────────────────────────────────────────────────────
+
+def generate_comparison_report(result_dirs, threshold=80.0):
+    """Generate a comparative summary report across multiple simulation directories."""
+    reports = []
+    
+    for d in result_dirs:
+        # We temporarily silence the single-report printouts to just extract data
+        # In a real refactor we'd split parsing from printing, but this works
+        temp_file = os.path.join(d, 'combined_temperature.trace')
+        power_file = os.path.join(d, 'combined_power.trace')
+        
+        temp_trace = parse_trace_file(temp_file)
+        power_trace = parse_trace_file(power_file)
+        
+        dir_name = os.path.basename(os.path.normpath(d))
+        
+        if temp_trace or power_trace:
+            reports.append({
+                'dir': d,
+                'name': dir_name,
+                'temp_trace': temp_trace,
+                'power_trace': power_trace
+            })
+            
+    if not reports:
+        print("Error: No valid simulation data found in any provided directory.")
+        return None
+
+    # Report header
+    print("\n{}".format(THICK_SEP))
+    print("  CoMeT COMPARATIVE SIMULATION REPORT")
+    print(THICK_SEP)
+
+    # Configuration Overview
+    print("\n  {:<24} {:>8} {:>8} {:>8}".format('Configuration', 'Epochs', 'Cores', 'Banks'))
+    print("  {} {} {} {}".format("-" * 24, "-" * 8, "-" * 8, "-" * 8))
+    for r in reports:
+        if r['temp_trace']:
+            print("  {:<24} {:>8} {:>8} {:>8}".format(
+                r['name'], r['temp_trace']['epochs'], 
+                len(r['temp_trace']['cores']), len(r['temp_trace']['banks'])))
+        else:
+            print("  {:<24} {:>8} {:>8} {:>8}".format(r['name'], "N/A", "N/A", "N/A"))
+
+    # Core Temperature Comparison
+    print_header("CORE TEMPERATURE COMPARISON (C)")
+    print("  {:<24} {:>8} {:>8} {:>8} {:>8}  {:<8}".format(
+        'Config', 'Min', 'Avg', 'Max', 'StdDev', 'Hottest'))
+    print("  {} {} {} {} {}  {}".format(
+        "-" * 24, "-" * 8, "-" * 8, "-" * 8, "-" * 8, "-" * 8))
+        
+    hot_configs = []
+    min_avg = float('inf')
+    max_avg = -float('inf')
+    coolest_config = None
+    hottest_config = None
+    
+    for r in reports:
+        if r['temp_trace']:
+            agg = get_aggregate_stats(r['temp_trace'], r['temp_trace']['cores'])
+            core_stats = get_component_stats(r['temp_trace'], r['temp_trace']['cores'])
+            hottest_name, _ = find_hotspot(core_stats)
+            
+            warning = "  [!] HOT" if agg['max'] > threshold else ""
+            if agg['max'] > threshold:
+                hot_configs.append(r['name'])
+                
+            if agg['avg'] < min_avg:
+                min_avg = agg['avg']
+                coolest_config = (r['name'], agg)
+            if agg['avg'] > max_avg:
+                max_avg = agg['avg']
+                hottest_config = (r['name'], agg)
+
+            print("  {:<24} {:>8.1f} {:>8.1f} {:>8.1f} {:>8.1f}  {:<8}{}".format(
+                r['name'], agg['min'], agg['avg'], agg['max'], agg['stddev'], 
+                hottest_name, warning))
+
+    # Power Comparison
+    power_reports = [r for r in reports if r['power_trace']]
+    if power_reports:
+        print_header("ESTIMATED POWER CONSUMPTION (W)")
+        print("  {:<24} {:>10} {:>10} {:>12}".format(
+            'Config', 'Core Pwr', 'Bank Pwr', 'Total Pwr'))
+        print("  {} {} {} {}".format("-" * 24, "-" * 10, "-" * 10, "-" * 12))
+        
+        for r in power_reports:
+            p_trace = r['power_trace']
+            core_pow = 0; bank_pow = 0
+            if p_trace['cores']:
+                core_agg = get_aggregate_stats(p_trace, p_trace['cores'])
+                core_pow = core_agg['avg'] * len(p_trace['cores'])
+            if p_trace['banks']:
+                bank_agg = get_aggregate_stats(p_trace, p_trace['banks'])
+                bank_pow = bank_agg['avg'] * len(p_trace['banks'])
+                
+            print("  {:<24} {:>10.2f} {:>10.2f} {:>12.2f}".format(
+                r['name'], core_pow, bank_pow, core_pow + bank_pow))
+
+    # Key Findings
+    print_header("KEY FINDINGS")
+    if hottest_config:
+        print("  1. Hottest configuration: {} (avg {:.1f} C, peak {:.1f} C)".format(
+            hottest_config[0], hottest_config[1]['avg'], hottest_config[1]['max']))
+        if coolest_config and coolest_config[0] != hottest_config[0]:
+            print("  2. Coolest configuration: {} (avg {:.1f} C, peak {:.1f} C)".format(
+                coolest_config[0], coolest_config[1]['avg'], coolest_config[1]['max']))
+            diff = hottest_config[1]['avg'] - coolest_config[1]['avg']
+            print("  3. Temperature difference between hottest and coolest: {:.1f} C average".format(diff))
+    
+    if hot_configs:
+        print("  4. [!] Configurations with core thermal violations: {}".format(", ".join(hot_configs)))
+    else:
+        print("  4. [OK] No configuration experienced thermal violations above {} C.".format(threshold))
+
+    print("\n{}\n".format(THICK_SEP))
+    return reports
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate a human-readable summary report from CoMeT simulation results.",
@@ -393,9 +513,7 @@ def main():
     if len(valid_dirs) == 1:
         generate_single_report(valid_dirs[0], threshold=args.threshold)
     else:
-        # TODO: Comparison mode (commit 9)
-        for d in valid_dirs:
-            generate_single_report(d, threshold=args.threshold)
+        generate_comparison_report(valid_dirs, threshold=args.threshold)
 
 
 if __name__ == '__main__':
