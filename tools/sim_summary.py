@@ -78,6 +78,36 @@ def get_component_series(trace, col_index):
     return [row[col_index] for row in trace['data']]
 
 
+def get_component_stats(trace, components):
+    """Compute per-component statistics including peak epoch.
+
+    Args:
+        trace: parsed trace dict from parse_trace_file()
+        components: list of (name, col_index) tuples (e.g., trace['cores'])
+
+    Returns:
+        dict mapping component name -> stats dict with peak_epoch
+    """
+    result = {}
+    for name, col_idx in components:
+        series = get_component_series(trace, col_idx)
+        stats = compute_stats(series)
+        stats['peak_epoch'] = series.index(max(series)) + 1
+        result[name] = stats
+    return result
+
+
+def get_aggregate_stats(trace, components):
+    """Compute overall statistics across ALL components of a type.
+
+    For example, the overall min/max/avg across all cores combined.
+    """
+    all_values = []
+    for name, col_idx in components:
+        all_values.extend(get_component_series(trace, col_idx))
+    return compute_stats(all_values)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate a human-readable summary report from CoMeT simulation results.",
