@@ -124,6 +124,38 @@ def find_hotspot(component_stats):
     return hottest[0], hottest[1]['max']
 
 
+def count_violations(trace, components, threshold):
+    """Count epochs where any component exceeds the given threshold.
+
+    Args:
+        trace: parsed trace dict
+        components: list of (name, col_index) tuples
+        threshold: temperature threshold in degrees C
+
+    Returns:
+        dict with:
+            'total_epochs' - number of epochs with at least one violation
+            'components'   - dict mapping violating component names to their violation count
+    """
+    violating_epochs = set()
+    component_violations = {}
+
+    for name, col_idx in components:
+        series = get_component_series(trace, col_idx)
+        count = 0
+        for epoch_idx, val in enumerate(series):
+            if val > threshold:
+                count += 1
+                violating_epochs.add(epoch_idx)
+        if count > 0:
+            component_violations[name] = count
+
+    return {
+        'total_epochs': len(violating_epochs),
+        'components': component_violations,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate a human-readable summary report from CoMeT simulation results.",
