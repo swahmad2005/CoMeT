@@ -6,6 +6,7 @@ sim_summary.py - CoMeT Simulation Summary Report Generator
 import sys
 import os
 import argparse
+import csv
 
 
 def parse_trace_file(filepath):
@@ -473,6 +474,87 @@ def generate_comparison_report(result_dirs, threshold=80.0):
     return reports
 
 
+# --- CSV Export ---------------------------------------------------------------
+
+def export_csv(reports, output_path, threshold):
+    """Export summary statistics to a CSV file."""
+    if not isinstance(reports, list):
+        reports = [reports]
+
+    if not reports:
+        return
+
+    try:
+        with open(output_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            # Header
+            writer.writerow([
+                'Configuration', 'Epochs', 'Cores', 'Banks', 
+                'Core_Temp_Avg', 'Core_Temp_Peak', 'Hottest_Core', 'Core_Violations',
+                'Bank_Temp_Avg', 'Bank_Temp_Peak', 'Hottest_Bank', 'Bank_Violations',
+                'Est_Total_Power_W'
+            ])
+            
+            for r in reports:
+                row = [r['name']]
+                
+                temp_trace = r.get('temp_trace')
+                power_trace = r.get('power_trace')
+                
+                if temp_trace:
+                    row.extend([temp_trace['epochs'], len(temp_trace['cores']), len(temp_trace['banks'])])
+                    
+                    # Core stats
+                    core_agg = get_aggregate_stats(temp_trace, temp_trace['cores'])
+                    core_stats = get_component_stats(temp_trace, temp_trace['cores'])
+                    hottest_core, _ = find_hotspot(core_stats)
+                    core_viols = count_violations(temp_trace, temp_trace['cores'], threshold)
+                    
+                    row.extend([
+                        round(core_agg['avg'], 2), 
+                        round(core_agg['max'], 2), 
+                        hottest_core, 
+                        core_viols['total_epochs']
+                    ])
+                    
+                    # Bank stats
+                    if temp_trace['banks']:
+                        bank_agg = get_aggregate_stats(temp_trace, temp_trace['banks'])
+                        bank_stats = get_component_stats(temp_trace, temp_trace['banks'])
+                        hottest_bank, _ = find_hotspot(bank_stats)
+                        bank_viols = count_violations(temp_trace, temp_trace['banks'], threshold)
+                        
+                        row.extend([
+                            round(bank_agg['avg'], 2), 
+                            round(bank_agg['max'], 2), 
+                            hottest_bank, 
+                            bank_viols['total_epochs']
+                        ])
+                    else:
+                        row.extend(['', '', '', ''])
+                else:
+                    row.extend(['', '', '', '', '', '', '', '', '', '', ''])
+                    
+                # Power stats
+                est_power = ''
+                if power_trace:
+                    total_pow = 0
+                    if power_trace['cores']:
+                        c_pow = get_aggregate_stats(power_trace, power_trace['cores'])
+                        total_pow += c_pow['avg'] * len(power_trace['cores'])
+                    if power_trace['banks']:
+                        b_pow = get_aggregate_stats(power_trace, power_trace['banks'])
+                        total_pow += b_pow['avg'] * len(power_trace['banks'])
+                    est_power = round(total_pow, 2)
+                    
+                row.append(est_power)
+                writer.writerow(row)
+                
+        print("  [OK] CSV summary exported to: {}".format(output_path))
+    except Exception as e:
+        print("  ERROR: Failed to write CSV file: {}".format(e))
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate a human-readable summary report from CoMeT simulation results.",
@@ -510,10 +592,18 @@ def main():
         sys.exit(1)
 
     # Route to single or comparison mode
+    reports = []
     if len(valid_dirs) == 1:
-        generate_single_report(valid_dirs[0], threshold=args.threshold)
+        res = generate_single_report(valid_dirs[0], threshold=args.threshold)
+        if res:
+            reports.append(res)
     else:
-        generate_comparison_report(valid_dirs, threshold=args.threshold)
+        res = generate_comparison_report(valid_dirs, threshold=args.threshold)
+        if res:
+            reports = res
+
+    if args.csv and reports:
+        export_csv(reports, args.csv, threshold=args.threshold)
 
 
 if __name__ == '__main__':
