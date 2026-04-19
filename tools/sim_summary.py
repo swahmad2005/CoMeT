@@ -8,6 +8,47 @@ import os
 import argparse
 
 
+def parse_trace_file(filepath):
+    """Parse a CoMeT .trace file into headers and a data matrix."""
+    if not os.path.exists(filepath):
+        return None
+
+    headers = []
+    data = []
+
+    with open(filepath, 'r') as f:
+        for idx, line in enumerate(f):
+            line = line.strip()
+            if not line:
+                continue
+
+            parts = line.split()
+
+            if idx == 0:
+                headers = parts
+            else:
+                try:
+                    row = [float(val) for val in parts]
+                    if len(row) == len(headers):
+                        data.append(row)
+                except ValueError:
+                    continue
+
+    if not headers or not data:
+        return None
+
+    cores = [(h, i) for i, h in enumerate(headers) if h.startswith('C_')]
+    banks = [(h, i) for i, h in enumerate(headers) if h.startswith('B_')]
+
+    return {
+        'headers': headers,
+        'data': data,
+        'cores': cores,
+        'banks': banks,
+        'epochs': len(data),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate a human-readable summary report from CoMeT simulation results.",
@@ -44,13 +85,25 @@ def main():
         print("Error: No valid directories provided.")
         sys.exit(1)
 
-    # TODO: Route to single or comparison mode
-    print("Directories to analyze: {}".format(len(valid_dirs)))
+    # Parse and report on each directory
     for d in valid_dirs:
-        print("  - {}".format(d))
-    print("Threshold: {}°C".format(args.threshold))
-    if args.csv:
-        print("CSV export: {}".format(args.csv))
+        temp_file = os.path.join(d, 'combined_temperature.trace')
+        power_file = os.path.join(d, 'combined_power.trace')
+
+        temp_trace = parse_trace_file(temp_file)
+        power_trace = parse_trace_file(power_file)
+
+        print("\nDirectory: {}".format(d))
+        if temp_trace:
+            print("  Temperature trace: {} epochs, {} cores, {} banks".format(
+                temp_trace['epochs'], len(temp_trace['cores']), len(temp_trace['banks'])))
+        else:
+            print("  Temperature trace: not found")
+        if power_trace:
+            print("  Power trace: {} epochs, {} cores, {} banks".format(
+                power_trace['epochs'], len(power_trace['cores']), len(power_trace['banks'])))
+        else:
+            print("  Power trace: not found")
 
 
 if __name__ == '__main__':
