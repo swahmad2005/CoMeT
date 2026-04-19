@@ -156,6 +156,54 @@ def count_violations(trace, components, threshold):
     }
 
 
+# ─── Report Formatting ───────────────────────────────────────────────────────
+
+SEPARATOR = "\u2500" * 72
+THICK_SEP = "\u2550" * 72
+
+
+def print_header(title):
+    """Print a section header with a separator line."""
+    print("\n{}".format(SEPARATOR))
+    print("  {}".format(title))
+    print(SEPARATOR)
+
+
+def print_stats_table(component_stats, unit, top_n=None):
+    """Print a formatted table of per-component statistics.
+
+    Args:
+        component_stats: dict mapping name -> stats dict
+        unit: string like 'C' or 'W' (for display context)
+        top_n: if set, only show the top N highest components
+    """
+    if not component_stats:
+        print("  No data available.")
+        return
+
+    # Sort by max value descending (hottest/highest first)
+    sorted_items = sorted(component_stats.items(),
+                          key=lambda x: x[1]['max'], reverse=True)
+
+    if top_n and len(sorted_items) > top_n:
+        sorted_items = sorted_items[:top_n]
+        print("  (Showing top {} of {} components)\n".format(
+            top_n, len(component_stats)))
+
+    # Table header
+    print("  {:<12} {:>8} {:>8} {:>8} {:>8} {:>12}".format(
+        'Component', 'Min', 'Avg', 'Max', 'StdDev', 'Peak@Epoch'))
+    print("  {} {} {} {} {} {}".format(
+        "\u2500" * 12, "\u2500" * 8, "\u2500" * 8, "\u2500" * 8,
+        "\u2500" * 8, "\u2500" * 12))
+
+    # Table rows
+    for name, stats in sorted_items:
+        print("  {:<12} {:>8.2f} {:>8.2f} {:>8.2f} {:>8.2f} {:>12}".format(
+            name, stats['min'], stats['avg'], stats['max'],
+            stats['stddev'], stats['peak_epoch']))
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate a human-readable summary report from CoMeT simulation results.",
