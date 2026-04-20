@@ -436,6 +436,29 @@ The resulting reliability statistics will show up in the files listed under the 
 
 </details>
 
+### 3.10 SimSummary: Text-based Reporting and Comparison
+
+<details>
+<summary>Click here to open details</summary>
+
+*SimSummary* (`sim_summary.py`) is an offline reporting tool that processes the raw interval traces generated during simulation (`combined_temperature.trace`, `combined_power.trace`) and distils them into a human-readable summary.
+
+It computes component-level minimum, average, maximum, and standard deviation bounds, identifies global thermal hotspots, detects epochs experiencing thermal violations, and estimates runtime power footprint.
+
+#### Usage Examples:
+```bash
+# Analyze a single simulator run and generate a deep-dive report
+python3 tools/sim_summary.py test/test-installation/comet_results/gainestown_3D
+
+# Compare multiple architectures/workloads side-by-side
+python3 tools/sim_summary.py test/test-installation/comet_results/*
+
+# Specify custom threshold (e.g. 85.0 C) and export stats directly to CSV
+python3 tools/sim_summary.py test/test-installation/comet_results/* --threshold 85 --csv output_stats.csv
+```
+
+</details>
+
 
 ## Code Acknowledgements
 
