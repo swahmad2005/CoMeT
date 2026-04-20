@@ -3,28 +3,44 @@ import sys
 import os
 
 def convert_video(input_path):
-    # Check if the input file exists
     if not os.path.exists(input_path):
         print(f"Error: File {input_path} not found.")
         return
 
-    output_path = input_path.replace('.avi', '.mp4')
+    # Define both output paths
+    mp4_output = input_path.replace('.avi', '.mp4')
+    gif_output = input_path.replace('.avi', '.gif')
     
-    # ffmpeg command for high compatibility MP4 (H.264)
-    command = [
+    # Common video filter to fix odd-pixel dimensions 
+    # Added 'fps=10' for the GIF to keep the file size small
+    vf_settings = 'pad=ceil(iw/2)*2:ceil(ih/2)*2'
+
+    # 1. MP4 Command
+    mp4_command = [
         'ffmpeg', '-i', input_path,
-        '-vf','pad=ceil(iw/2)*2:ceil(ih/2)*2',  # Ensure dimensions are even
-        '-c:v', 'libx264',
-        '-crf', '23',
-        '-pix_fmt', 'yuv420p',
-        output_path, '-y'
+        '-vf', vf_settings,
+        '-c:v', 'libx264', '-crf', '23', '-pix_fmt', 'yuv420p',
+        mp4_output, '-y'
     ]
 
-    print(f"Converting: {input_path} to {output_path}...")
-    
+    # 2. GIF Command (using Lanczos scaling for high quality)
+    gif_command = [
+        'ffmpeg', '-i', input_path,
+        '-vf', f'{vf_settings},fps=10,scale=800:-1:flags=lanczos',
+        gif_output, '-y'
+    ]
+
     try:
-        subprocess.run(command, check=True)
-        print(f"Success! File saved at: {output_path}")
+        print(f" Processing: {input_path}...")
+        
+        # Run MP4 conversion
+        subprocess.run(mp4_command, check=True)
+        print(f" Success! MP4 saved: {mp4_output}")
+        
+        # Run GIF conversion
+        subprocess.run(gif_command, check=True)
+        print(f"Success! GIF saved: {gif_output}")
+        
     except Exception as e:
         print(f"Conversion failed: {e}")
 
